@@ -986,7 +986,7 @@
         /* ════════════════ CONFIG ═══════════════════════ */
         const CFG = { walkSpeed: 6.5, npcSpeed: 1.9, npcCount: 18, camDist: 8.5, camHeightBase: 3.8, speakDist: 11, greetCool: 9, bubbleDurMs: 4000, mouseSens: .0022, touchSens: .007, proxDist: 20, joyRadius: 44, joyTurn: 2.2, interactDist: 7 };
 
-        const DIALOGUES = ["Merhaba! ", "Bugün dersin var mı?", "Hafta sonu işin var mı?", "Kütüphaneye gidiyorum!", "Yemekhanede buluşalım!", "Sınavlar yaklaşıyor ", "Proje ödevim bitmedi!", "Harran'a hoş geldin! ", "Nasılsın, iyi misin?", "Kampüs çok güzel değil mi?", "Şimdi derse gidiyorum.", "Bugün hava çok güzel!", "Handan hoca nerde?", "Diften yine kaldım", "Koridorda görüşürüz!", "Ödev teslimi yarın...", "Ring yine mi dolu!"];
+        const DIALOGUES = ["Merhaba! 👋", "Bugün dersin var mı?", "Hocam çok anlatıyor...", "Kütüphaneye gidiyorum!", "Yemekhanede buluşalım!", "Sınavlar yaklaşıyor 😅", "Proje ödevim bitmedi!", "Harran'a hoş geldin! 🎓", "Nasılsın, iyi misin?", "Kampüs çok güzel değil mi?", "Şimdi derse gidiyorum.", "Bugün hava çok güzel!", "Bize katıl! 😄", "Koridorda görüşürüz!", "Ödev teslimi yarın...", "Ring yine mi dolu!"];
 
         const BUILDINGS = [
             { x: 0, z: -62, w: 42, h: 19, d: 22, color: 0xc9986a, css: '#c9986a', name: "Ana Bina" },
@@ -1606,6 +1606,47 @@
             amb.play().catch(() => console.warn('Ambient ses yüklenemedi.'));
             try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { }
         }
+        // Yay çekilme sesi – alçak gerilme gürültüsü, 1 saniye
+        function playBowDraw() {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            // Gürültü tabanlı "kreaking" sesi
+            const bufSz = audioCtx.sampleRate;
+            const buf = audioCtx.createBuffer(1, bufSz, audioCtx.sampleRate);
+            const data = buf.getChannelData(0);
+            for (let i = 0; i < bufSz; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(i / bufSz, 0.3);
+            const ns = audioCtx.createBufferSource(); ns.buffer = buf;
+            const flt = audioCtx.createBiquadFilter(); flt.type = 'bandpass'; flt.frequency.value = 180; flt.Q.value = 2.5;
+            const gn = audioCtx.createGain();
+            gn.gain.setValueAtTime(0, now);
+            gn.gain.linearRampToValueAtTime(0.18, now + 0.4);
+            gn.gain.linearRampToValueAtTime(0.12, now + 0.9);
+            gn.gain.linearRampToValueAtTime(0, now + 1.0);
+            ns.connect(flt); flt.connect(gn); gn.connect(audioCtx.destination);
+            ns.start(now); ns.stop(now + 1.05);
+        }
+
+        // Ok fırlatma sesi – hızlı whoosh
+        function playArrowShoot() {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            // Kısa whoosh: filtered noise hızla azalan
+            const bufSz = Math.floor(audioCtx.sampleRate * 0.25);
+            const buf = audioCtx.createBuffer(1, bufSz, audioCtx.sampleRate);
+            const data = buf.getChannelData(0);
+            for (let i = 0; i < bufSz; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufSz, 1.5);
+            const ns = audioCtx.createBufferSource(); ns.buffer = buf;
+            const flt = audioCtx.createBiquadFilter(); flt.type = 'highpass'; flt.frequency.value = 1200;
+            const gn = audioCtx.createGain(); gn.gain.setValueAtTime(0.5, now); gn.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+            ns.connect(flt); flt.connect(gn); gn.connect(audioCtx.destination);
+            ns.start(now); ns.stop(now + 0.25);
+            // Yay geri tepmesi – kısa "twang"
+            const o = audioCtx.createOscillator(); const og = audioCtx.createGain();
+            o.type = 'triangle'; o.frequency.setValueAtTime(220, now); o.frequency.exponentialRampToValueAtTime(60, now + 0.18);
+            og.gain.setValueAtTime(0.25, now); og.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+            o.connect(og); og.connect(audioCtx.destination); o.start(now); o.stop(now + 0.22);
+        }
+
         function playMurmur() {
             if (!audioCtx) return; const now = audioCtx.currentTime, o = audioCtx.createOscillator(), f = audioCtx.createBiquadFilter(), g = audioCtx.createGain();
             o.type = 'sawtooth'; o.frequency.value = 120 + Math.random() * 80; f.type = 'lowpass'; f.frequency.value = 350;
@@ -2306,48 +2347,82 @@
                 this.canvas = canvas; this.ctx = canvas.getContext('2d');
                 this.W = W; this.H = H; this.done = done;
                 this.points = 0;
-                this.missLeft = 5;   // ıskalama hakkı
+                this.missLeft = 5;
                 this.totalShots = 0;
-                this.state = 'aim';  // aim | fly | result
-                // Hedef – sadece X ekseninde hareket eder
-                this.tx = W / 2;
-                this.ty = H * .32;     // Y sabit
-                this.tdx = 2.5;      // başlangıç hızı
+                this.state = 'aim';
+                this.tx = W / 2; this.ty = H * .32; this.tdx = 2.5;
                 this.tr = Math.min(W, H) * .13;
-                // Ok uçuş
                 this.arrowFlyX = W / 2; this.arrowFlyY = H * .82;
-                this.arrowEndX = W / 2; this.arrowEndY = this.ty;
                 this.flyT = 0;
                 this.msg = ''; this.msgT = 0;
-                this._cl = e => this.onClick(e);
-                this._tc = e => this.onTap(e);
-                this._kb = e => { if (e.code === 'Space') this.shoot(); };
+                this.drawPct = 0; this.holding = false; this.holdStart = 0; this.DRAW_TIME = 500;
             }
             start() {
-                this.canvas.addEventListener('click', this._cl);
-                this.canvas.addEventListener('touchstart', this._tc, { passive: false });
+                this.drawPct = 0;      // 0..1 gerilme yüzdesi
+                this.holding = false;
+                this.holdStart = 0;
+                this.DRAW_TIME = 500;  // tam gerilme süresi ms
+                this._pd = e => { e.preventDefault(); this.pressDown(); };
+                this._pu = e => { e.preventDefault(); this.pressUp(); };
+                this._td = e => { e.preventDefault(); e.stopPropagation(); this.pressDown(); };
+                this._tu = e => { e.preventDefault(); e.stopPropagation(); this.pressUp(); };
+                this._kb = e => { if (e.code === 'Space') { e.preventDefault(); if (!this.holding) this.pressDown(); } };
+                this._kr = e => { if (e.code === 'Space') { e.preventDefault(); this.pressUp(); } };
+                this.canvas.addEventListener('mousedown', this._pd);
+                document.addEventListener('mouseup', this._pu);
+                this.canvas.addEventListener('touchstart', this._td, { passive: false });
+                this.canvas.addEventListener('touchend', this._tu, { passive: false });
                 document.addEventListener('keydown', this._kb);
+                document.addEventListener('keyup', this._kr);
                 this.loop();
             }
             destroy() {
-                this.canvas.removeEventListener('click', this._cl);
-                this.canvas.removeEventListener('touchstart', this._tc);
+                this.canvas.removeEventListener('mousedown', this._pd);
+                document.removeEventListener('mouseup', this._pu);
+                this.canvas.removeEventListener('touchstart', this._td);
+                this.canvas.removeEventListener('touchend', this._tu);
                 document.removeEventListener('keydown', this._kb);
+                document.removeEventListener('keyup', this._kr);
             }
-            onClick() { this.shoot(); }
-            onTap(e) { e.preventDefault(); e.stopPropagation(); this.shoot(); }
+            pressDown() {
+                if (this.state !== 'aim' || this.holding) return;
+                this.holding = true;
+                this.holdStart = performance.now();
+                this.drawPct = 0;
+                // Yay çekilme ses dosyası – aynı klasörde bow_draw.mp3 olmalı
+                if (!this._bowAudio) {
+                    this._bowAudio = new Audio('./bow_draw.mp3');
+                    this._bowAudio.volume = 0.7;
+                }
+                this._bowAudio.currentTime = 0;
+                this._bowAudio.play().catch(() => { });
+            }
+            pressUp() {
+                if (!this.holding) return;
+                this.holding = false;
+                if (this._bowAudio) { this._bowAudio.pause(); this._bowAudio.currentTime = 0; }
+                if (this.state !== 'aim') return;
+                // En az %10 gerilmişse ok fırlar
+                if (this.drawPct >= 0.1) this.shoot();
+                else this.drawPct = 0;
+            }
             shoot() {
                 if (this.state !== 'aim') return;
-                // Ok HER ZAMAN düz yukarı gider (nişangah = W/2, sabit)
                 this.arrowFlyX = this.W / 2;
                 this.arrowFlyY = this.H * .82;
                 this.state = 'fly'; this.flyT = 0; this.totalShots++;
-                playBeep(900, .06, .35);
+                this.drawPct = 0;
+                playArrowShoot();
             }
             loop() { gameRaf = requestAnimationFrame(() => this.loop()); this.update(); this.draw(); }
             update() {
                 const W = this.W;
-                // Hedef her zaman hareket eder (fly sırasında da!)
+                // Gerilme yüzdesini güncelle
+                if (this.holding && this.state === 'aim') {
+                    this.drawPct = Math.min(1, (performance.now() - this.holdStart) / this.DRAW_TIME);
+                }
+
+                // Hedef her zaman hareket eder (aim, drawing ve fly sırasında da!)
                 this.tx += this.tdx;
                 if (this.tx - this.tr < W * .08) this.tdx = Math.abs(this.tdx);
                 if (this.tx + this.tr > W * .92) this.tdx = -Math.abs(this.tdx);
@@ -2389,7 +2464,7 @@
                 }
                 if (this.msgT > 0) this.msgT--;
                 document.getElementById('game-score-txt').textContent = `Skor: ${this.points}`;
-                document.getElementById('game-info-txt').textContent = `❤️ ${this.missLeft} ıskalama hakkı | Tıkla/Boşluk`;
+                document.getElementById('game-info-txt').textContent = `❤️ ${this.missLeft} ıskalama hakkı | Basılı tut → Bırak!`;
             }
             draw() {
                 const c = this.ctx, W = this.W, H = this.H;
@@ -2432,11 +2507,45 @@
                 // Okçu
                 c.fillStyle = '#1a4f8a'; c.fillRect(W / 2 - 12, H * .85, 24, 38);
                 c.fillStyle = '#a0522d'; c.beginPath(); c.arc(W / 2, H * .82, 13, 0, Math.PI * 2); c.fill();
-                // Yay
+                // Yay – drawPct'ye göre gerilir
+                const pct = this.drawPct || 0;
+                const bowCurve = 20 + pct * 18;   // 20 → 38
+                const bowAng = 0.55 + pct * 0.35; // 0.55 → 0.90
                 c.strokeStyle = '#8b4513'; c.lineWidth = 2.5;
-                c.beginPath(); c.arc(W / 2 - 16, H * .85, 20, -0.55, 0.55); c.stroke();
-                c.beginPath(); c.moveTo(W / 2 - 16 + 20 * Math.cos(-0.55), H * .85 + 20 * Math.sin(-0.55));
-                c.lineTo(W / 2 - 16 + 20 * Math.cos(0.55), H * .85 + 20 * Math.sin(0.55)); c.stroke();
+                c.beginPath(); c.arc(W / 2 - 16, H * .85, bowCurve, -bowAng, bowAng); c.stroke();
+                // Yay ipi
+                const bowX1 = W / 2 - 16 + bowCurve * Math.cos(-bowAng), bowY1 = H * .85 + bowCurve * Math.sin(-bowAng);
+                const bowX2 = W / 2 - 16 + bowCurve * Math.cos(bowAng), bowY2 = H * .85 + bowCurve * Math.sin(bowAng);
+                if (pct > 0.05) {
+                    // Gerilmiş – V şekli, ok ucu ortada
+                    const pull = pct * 14;
+                    c.strokeStyle = '#ddd'; c.lineWidth = 1.5;
+                    c.beginPath(); c.moveTo(bowX1, bowY1); c.lineTo(W / 2 + 6 + pull, H * .82); c.lineTo(bowX2, bowY2); c.stroke();
+                    // Ok
+                    c.strokeStyle = '#8b4513'; c.lineWidth = 2;
+                    c.beginPath(); c.moveTo(W / 2, H * .82 - 16 - pct * 18); c.lineTo(W / 2 + 6 + pull, H * .82 + 4); c.stroke();
+                    c.fillStyle = '#ccc'; c.beginPath(); c.moveTo(W / 2, H * .82 - 28 - pct * 18); c.lineTo(W / 2 - 4, H * .82 - 16 - pct * 18); c.lineTo(W / 2 + 4, H * .82 - 16 - pct * 18); c.closePath(); c.fill();
+                } else {
+                    c.strokeStyle = '#ddd'; c.lineWidth = 1.5;
+                    c.beginPath(); c.moveTo(bowX1, bowY1); c.lineTo(bowX2, bowY2); c.stroke();
+                }
+
+                // Gerilme çubuğu (basılı tutulunca gösterilir)
+                if (this.holding || pct > 0) {
+                    const bw = W * .5, bh = IS_MOB ? 20 : 14, bx2 = W * .25, by2 = H * .93;
+                    c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(bx2, by2, bw, bh);
+                    // Renk: yeşil → sarı → kırmızı
+                    const gc = c.createLinearGradient(bx2, 0, bx2 + bw, 0);
+                    gc.addColorStop(0, '#2ecc71'); gc.addColorStop(0.6, '#f39c12'); gc.addColorStop(1, '#e74c3c');
+                    c.fillStyle = gc; c.fillRect(bx2, by2, bw * pct, bh);
+                    c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 1.5; c.strokeRect(bx2, by2, bw, bh);
+                    // Tam gerilme işareti
+                    c.strokeStyle = '#00ff88'; c.lineWidth = 2;
+                    c.beginPath(); c.moveTo(bx2 + bw, by2 - 3); c.lineTo(bx2 + bw, by2 + bh + 3); c.stroke();
+                    c.fillStyle = 'white'; c.font = `${H * .034}px Inter,Arial`; c.textAlign = 'center';
+                    const label = pct >= 1 ? '🔥 TAM GERİLDİ – BIRAK!' : 'Basılı tut…';
+                    c.fillText(label, W / 2, by2 - 5);
+                }
 
                 // Mesaj
                 if (this.msg && this.msgT > 0) {
