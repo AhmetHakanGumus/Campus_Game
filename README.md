@@ -9,64 +9,64 @@
 
 ---
 
-## 🎮 Oyun Hakkında
+##  Oyun Hakkında
 
-Harran Üniversitesi Kampüs Sanal Turu, üniversitenin web sitesi için geliştirilmiş interaktif bir 3D deneyimdir. Oyuncular kampüs içinde serbestçe dolaşabilir, öğrenci NPC'leriyle etkileşime girebilir ve tüm fakülte binalarını keşfedebilir. Harici kütüphane bağımlılığı olmadan yalnızca **vanilla JavaScript + Three.js** ile yazılmıştır.
+Harran Üniversitesi Kampüs Sanal Turu, üniversitenin web sitesi için geliştirilmiş interaktif bir 3D deneyimdir. Oyuncular kampüs içinde serbestçe dolaşabilir ve tüm fakülte binalarını keşfedebilir. Harici kütüphane bağımlılığı olmadan yalnızca **vanilla JavaScript + Three.js** ile yazılmıştır.
 
 ---
 
-## ✨ Özellikler
+##  Özellikler
 
-### 🧍 Karakter & Kontroller
+###  Karakter & Kontroller
 - **W / S** tuşlarıyla ileri-geri yürüme
 - **Fare** ile 360° kamera ve yön kontrolü (Pointer Lock API)
 - Üçüncü şahıs kamera, karakteri yukarıdan takip eder
 - Kollar ve bacaklar için gerçekçi yürüyüş animasyonu
 
-### 🏗️ Kampüs Ortamı
+###  Kampüs Ortamı
 - Prosedürel olarak oluşturulmuş **11 bina**:
-  - Ana Bina, Kütüphane, Mühendislik Fakültesi
+  - Rektörlük, Kütüphane, Mühendislik Fakültesi
   - Fen-Edebiyat Fakültesi, İktisadi Bilimler Fakültesi
-  - Yemekhane, Yurt A & B, Spor Salonu
-  - Sağlık Merkezi, Güvenlik
+  - Yemekhane, Yurt A & B, Besyo
+  - Harran Tıp, Güvenlik
 - Her binada pencereler, kapı ve renkli çatı detayları
 - Ağaçlar, lamba direkleri, yollar ve merkezi plaza
 - Dinamik gölgeler ve sis efekti ile derinlik hissi
 
-### 🚪 Hoş Geldiniz Kapısı
+###  Hoş Geldiniz Kapısı
 - Kampüs girişinde "Harran Üniversitesi'ne Hoş Geldiniz!" yazılı dekoratif kemer
 
-### 🎒 NPC Öğrenciler
+###  NPC Öğrenciler
 - **18 adet** renkli öğrenci karakteri kampüste dolaşır
 - Her NPC kendi hedefine yürür, zaman zaman durur ve konuşur
 - Oyuncu yaklaşınca NPC konuşma balonları gösterir:
   - *"Merhaba!"*, *"Bugün dersin var mı?"*, *"Sınavlar yaklaşıyor..."* vb.
 - Balonlar 3D dünya konumuna projeksiyon ile kilitlenir
 
-### 🔊 Ses Sistemi
+###  Ses Sistemi
 - Harici ambiyans ses dosyası desteği (`Sound_Effects_Outdoor.mp3`)
 - Prosedürel **rüzgar sesi** (Web Audio API, band-pass filtreli gürültü + LFO)
 - Periyodik **kuş cıvıltısı** efektleri
-- NPC konuşmalarında **mırıltı sesi**
 
-### 🏢 Bina Rehberi Paneli
+
+###  Bina Rehberi Paneli
 - Sağ üst köşede tüm binaları listeleyen panel
 - Paneldeki bina ismine tıklayınca minimapte ilgili bina **altın rengiyle yanıp söner**
 - ESC ile fare serbest bırakıldığında panel tıklanabilir kalır
 
-### 🗺️ Minimap
+###  Minimap
 - Sağ alt köşede gerçek zamanlı kampüs haritası
 - Kırmızı nokta + yön oku ile oyuncu konumu
 - Teal noktalar ile NPC konumları
 - Seçilen bina animasyonlu altın rengi vurgulaması
 - Kuzey (N) göstergesi
 
-### 🧱 Çarpışma Sistemi
+###  Çarpışma Sistemi
 - Tüm binalar için AABB tabanlı çarpışma algılama
 - Duvara dik açıda çarparken **yanal kayma** (wall sliding) desteği
 - Oyuncu kampüs sınırları dışına çıkamaz
 
-### 🎨 Görsel & Arayüz
+###  Görsel & Arayüz
 - Açılış ekranı ile kontrol bilgileri
 - Bir binaya yaklaşınca binanın önünde **altın rengi yakınlık etiketi** belirir
 - Crosshair (nişan izi) HUD
@@ -74,7 +74,7 @@ Harran Üniversitesi Kampüs Sanal Turu, üniversitenin web sitesi için gelişt
 
 ---
 
-## 🚀 Kurulum & Çalıştırma
+##  Kurulum & Çalıştırma
 
 ### Gereksinimler
 - Node.js (v16+) — yerel geliştirme sunucusu için
@@ -100,7 +100,7 @@ Ambiyans müziği için `Sound_Effects_Outdoor.mp3` dosyasını projenin `src/` 
 
 ---
 
-## 🕹️ Kontroller
+##  Kontroller
 
 | Tuş / Hareket | Eylem |
 |---|---|
@@ -112,7 +112,7 @@ Ambiyans müziği için `Sound_Effects_Outdoor.mp3` dosyasını projenin `src/` 
 
 ---
 
-## 🛠️ Teknolojiler
+##  Teknolojiler
 
 | Teknoloji | Kullanım |
 |---|---|
@@ -125,19 +125,7 @@ Ambiyans müziği için `Sound_Effects_Outdoor.mp3` dosyasını projenin `src/` 
 
 ---
 
-## 📁 Proje Yapısı
 
-```
-harran-kampus-turu/
-├── src/
-│   ├── main.js                   # Giriş noktası
-│   └── Sound_Effects_Outdoor.mp3 # Ambiyans sesi
-├── index.html                    # Ana oyun dosyası
-├── package.json
-└── README.md
-```
-
----
 
 ## 🗺️ Kampüs Haritası
 
@@ -153,13 +141,13 @@ harran-kampus-turu/
 
 ---
 
-## 🤝 Katkı
+##  Katkı
 
 Pull request ve öneriler memnuniyetle karşılanır. Büyük değişiklikler için önce bir issue açmanız önerilir.
 
 ---
 
-## 📄 Lisans
+##  Lisans
 
 Bu proje [MIT Lisansı](LICENSE) ile lisanslanmıştır.
 
