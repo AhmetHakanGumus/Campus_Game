@@ -236,6 +236,7 @@ let highlightIdx=-1,blinkOn=true,blinkTimer=0;
 let keys={},isLocked=false;
 let mmCtx,mmSize=165,audioCtx=null,lastT=0;
 let bldgTimer=null,mapTimer=null;
+const bldgRef={v:null},mapRef={v:null};
 
 // ── Joystick touch state ──────────────────────────────────
 const JOY={
@@ -419,15 +420,13 @@ function buildSidePanel(){
     const item=document.createElement('div');item.className='bldg-item';
     const dot=document.createElement('div');dot.className='bldg-dot';dot.style.background=b.css;dot.style.boxShadow=`0 0 6px ${b.css}88`;
     item.appendChild(dot);item.appendChild(document.createTextNode(b.name));
-    item.addEventListener('click',()=>{
+    const handler=()=>{
       if(highlightIdx===i){highlightIdx=-1;item.classList.remove('active');}
       else{document.querySelectorAll('.bldg-item').forEach(el=>el.classList.remove('active'));highlightIdx=i;item.classList.add('active');}
-      // Mobilde tıklanınca süreyi uzat
-      if(IS_MOBILE && typeof bldgTimer!=='undefined'){
-        clearTimeout(bldgTimer);
-        bldgTimer=setTimeout(()=>document.getElementById('bldg-panel').classList.remove('mob-open'),3000);
-      }
-    });
+      if(IS_MOBILE){clearTimeout(bldgTimer);bldgTimer=setTimeout(()=>panel.classList.remove('mob-open'),3000);}
+    };
+    item.addEventListener('click', handler);
+    item.addEventListener('touchend',e=>{e.stopPropagation();e.preventDefault();handler();},{passive:false});
     panel.appendChild(item);
   });
 }
@@ -637,13 +636,23 @@ function setupControls(){
     updateJoyBase();
 
     /* ── MOBİL: dokunmatik olaylar ────────────────────── */
-    const canvas=renderer.domElement;
 
-    // Joystick bölgesi: ekranın sol yarısı
-    // Kamera bölgesi: ekranın sağ yarısı
+    // UI elementleri: bu elemanlara dokunan touch'lar oyun kontrolünü tetiklememeli
+    const UI_IDS=['m-bldg-btn','m-map-btn','bldg-panel'];
+    function isUITouch(t){
+      let el=document.elementFromPoint(t.clientX,t.clientY);
+      while(el){
+        if(el.id&&UI_IDS.includes(el.id)) return true;
+        if(el.classList&&el.classList.contains('bldg-item')) return true;
+        el=el.parentElement;
+      }
+      return false;
+    }
+
     document.addEventListener('touchstart',e=>{
-      e.preventDefault();
       Array.from(e.changedTouches).forEach(t=>{
+        if(isUITouch(t)) return; // UI'a dokunan touch'u atla
+        e.preventDefault();
         const isLeft=t.clientX < innerWidth*0.45;
         if(isLeft && !JOY.active){
           JOY.active=true;JOY.id=t.identifier;
@@ -672,34 +681,41 @@ function setupControls(){
     },{passive:false});
 
     document.addEventListener('touchend',e=>{
-      e.preventDefault();
       Array.from(e.changedTouches).forEach(t=>{
         if(t.identifier===JOY.id)  resetJoy();
         if(t.identifier===LOOK.id){LOOK.active=false;LOOK.id=-1;}
       });
     },{passive:false});
 
-    document.addEventListener('touchcancel',e=>{
+    document.addEventListener('touchcancel',()=>{
       resetJoy();LOOK.active=false;LOOK.id=-1;
     });
 
     /* ── MOBİL: toggle butonları – 3 sn sonra kapanır ─── */
+    function mobileToggle(elId, getTimer, setTimer){
+      const el=document.getElementById(elId);
+      const opening=!el.classList.contains('mob-open');
+      el.classList.toggle('mob-open', opening);
+      clearTimeout(getTimer());
+      if(opening) setTimer(setTimeout(()=>el.classList.remove('mob-open'), 3000));
+    }
 
-    document.getElementById('m-bldg-btn').addEventListener('click',()=>{
-      const p=document.getElementById('bldg-panel');
+    document.getElementById('m-bldg-btn').addEventListener('touchend',e=>{
+      e.stopPropagation(); e.preventDefault();
+      mobileToggle('bldg-panel', ()=>bldgTimer, v=>{ bldgTimer=v; });
+    },{passive:false});
+
+    document.getElementById('m-map-btn').addEventListener('touchend',e=>{
+      e.stopPropagation(); e.preventDefault();
+      mobileToggle('mm-wrap', ()=>mapTimer, v=>{ mapTimer=v; });
+    },{passive:false});
+
+    // Bina listesine dokunulunca süreyi 3 sn yenile
+    document.getElementById('bldg-panel').addEventListener('touchend',e=>{
+      e.stopPropagation();
       clearTimeout(bldgTimer);
-      const opening=!p.classList.contains('mob-open');
-      p.classList.toggle('mob-open', opening);
-      if(opening) bldgTimer=setTimeout(()=>p.classList.remove('mob-open'), 3000);
-    });
-
-    document.getElementById('m-map-btn').addEventListener('click',()=>{
-      const w=document.getElementById('mm-wrap');
-      clearTimeout(mapTimer);
-      const opening=!w.classList.contains('mob-open');
-      w.classList.toggle('mob-open', opening);
-      if(opening) mapTimer=setTimeout(()=>w.classList.remove('mob-open'), 3000);
-    });
+      bldgTimer=setTimeout(()=>document.getElementById('bldg-panel').classList.remove('mob-open'), 3000);
+    },{passive:false});
   }
 }
 
