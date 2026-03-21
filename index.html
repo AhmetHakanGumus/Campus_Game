@@ -415,7 +415,7 @@ function buildScene(){
   scene.add(sun);scene.add(new THREE.HemisphereLight(0x87ceeb,0x6b5033,.4));
   const gnd=new THREE.Mesh(new THREE.PlaneGeometry(320,320),new THREE.MeshLambertMaterial({color:0x518a3e}));
   gnd.rotation.x=-Math.PI/2;gnd.receiveShadow=!IS_MOB;scene.add(gnd);
-  const pm=new THREE.MeshLambertMaterial({color:0xcab896});
+  const pm=new THREE.MeshLambertMaterial({color:0x9e9e8a});
   [[0,0,9,175],[0,-46,155,9],[0,14,130,7],[-28,-70,7,50],[28,-70,7,50]].forEach(([x,z,w,d])=>addPlane(x,z,w,d,pm,.02));
   addPlane(0,-20,30,30,new THREE.MeshLambertMaterial({color:0xbfa882}),.03);
   BUILDINGS.forEach(addBuilding);
@@ -542,7 +542,7 @@ function createPlayer(){player=makeHuman(0x1a4f8a,0x1a2a3a);player.position.set(
 
 function makeHuman(bc,lc){
   const g=new THREE.Group();
-  const sk=new THREE.MeshLambertMaterial({color:0xf0c8a0}),bm=new THREE.MeshLambertMaterial({color:bc}),lm=new THREE.MeshLambertMaterial({color:lc}),sm=new THREE.MeshLambertMaterial({color:0x1a1a1a});
+  const sk=new THREE.MeshLambertMaterial({color:0xa0522d}),bm=new THREE.MeshLambertMaterial({color:bc}),lm=new THREE.MeshLambertMaterial({color:lc}),sm=new THREE.MeshLambertMaterial({color:0x1a1a1a});
   const add=(geo,mat,x,y,z)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=!IS_MOB;g.add(m);return m};
   g.torso=add(new THREE.BoxGeometry(.62,.82,.32),bm,0,1.22,0);g.head=add(new THREE.BoxGeometry(.44,.44,.44),sk,0,1.95,0);
   g.lArm=add(new THREE.BoxGeometry(.21,.68,.21),bm,-.45,1.12,0);g.rArm=add(new THREE.BoxGeometry(.21,.68,.21),bm,.45,1.12,0);
@@ -579,7 +579,15 @@ function buildSidePanel(){
     item.addEventListener('click',()=>{
       if(highlightIdx===i){highlightIdx=-1;item.classList.remove('active');}
       else{document.querySelectorAll('.bldg-item').forEach(el=>el.classList.remove('active'));highlightIdx=i;item.classList.add('active');}
-      if(IS_MOB&&bldgTimer){clearTimeout(bldgTimer);bldgTimer=setTimeout(()=>document.getElementById('bldg-panel').classList.remove('mob-open'),3000);}
+      if(IS_MOB){
+        // Bina seçince haritayı otomatik aç
+        clearTimeout(bldgTimer);
+        bldgTimer=setTimeout(()=>document.getElementById('bldg-panel').classList.remove('mob-open'),3000);
+        const mmw=document.getElementById('mm-wrap');
+        clearTimeout(mapTimer);
+        mmw.classList.add('mob-open');
+        mapTimer=setTimeout(()=>mmw.classList.remove('mob-open'),4000);
+      }
     });
     panel.appendChild(item);
   });
