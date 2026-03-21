@@ -423,7 +423,16 @@ function buildSidePanel(){
     const handler=()=>{
       if(highlightIdx===i){highlightIdx=-1;item.classList.remove('active');}
       else{document.querySelectorAll('.bldg-item').forEach(el=>el.classList.remove('active'));highlightIdx=i;item.classList.add('active');}
-      if(IS_MOBILE){clearTimeout(bldgTimer);bldgTimer=setTimeout(()=>panel.classList.remove('mob-open'),3000);}
+      if(IS_MOBILE){
+        // Bina panelini hemen kapat
+        panel.classList.remove('mob-open');
+        clearTimeout(bldgTimer);
+        // Minimapı aç, 3 sn sonra kapat
+        const mm=document.getElementById('mm-wrap');
+        mm.classList.add('mob-open');
+        clearTimeout(mapTimer);
+        mapTimer=setTimeout(()=>mm.classList.remove('mob-open'),3000);
+      }
     };
     item.addEventListener('click', handler);
     item.addEventListener('touchend',e=>{e.stopPropagation();e.preventDefault();handler();},{passive:false});
