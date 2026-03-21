@@ -797,8 +797,25 @@ function setupControls(){
   } else {
     document.getElementById('lock-overlay').classList.add('hidden');
     updateJoyBase();
+
+    // UI elemanlarına (buton, panel, input vb.) dokunan touch'ları engelleme
+    const isUI=t=>{
+      let el=document.elementFromPoint(t.clientX,t.clientY);
+      while(el){
+        const tag=el.tagName;
+        if(tag==='BUTTON'||tag==='INPUT'||tag==='A'||tag==='SELECT'||tag==='LABEL')return true;
+        const id2=el.id||'';
+        if(['bldg-panel','lb-panel','mm-wrap','interact-prompt','score-modal','game-overlay','game-hud','game-quit-btn'].includes(id2))return true;
+        if(el.classList&&(el.classList.contains('bldg-item')||el.classList.contains('lb-tab')||el.classList.contains('lb-row')||el.classList.contains('ip-btns')||el.classList.contains('sm-card')||el.classList.contains('m-btn')))return true;
+        el=el.parentElement;
+      }
+      return false;
+    };
+
     document.addEventListener('touchstart',e=>{
-      if(gameRunning)return; // oyun açıkken joystick/kamera çalışmasın
+      if(gameRunning)return;
+      // UI elemanına dokunuluyorsa karışma
+      if(Array.from(e.changedTouches).some(isUI))return;
       e.preventDefault();
       Array.from(e.changedTouches).forEach(t=>{
         const isL=t.clientX<innerWidth*.45;
@@ -806,23 +823,33 @@ function setupControls(){
         else if(!isL&&!LOOK.active){LOOK.active=true;LOOK.id=t.identifier;LOOK.lx=t.clientX;LOOK.ly=t.clientY;}
       });
     },{passive:false});
+
     document.addEventListener('touchmove',e=>{
       if(gameRunning)return;
+      if(Array.from(e.changedTouches).some(isUI))return;
       e.preventDefault();
       Array.from(e.changedTouches).forEach(t=>{
         if(t.identifier===JOY.id){setJoyThumb(t.clientX,t.clientY);}
-        else if(t.identifier===LOOK.id){const ddx=t.clientX-LOOK.lx,ddy=t.clientY-LOOK.ly;playerYaw-=ddx*CFG.touchSens;playerPitch+=ddy*CFG.touchSens;playerPitch=Math.max(-.45,Math.min(.95,playerPitch));LOOK.lx=t.clientX;LOOK.ly=t.clientY;}
+        else if(t.identifier===LOOK.id){
+          const ddx=t.clientX-LOOK.lx,ddy=t.clientY-LOOK.ly;
+          playerYaw-=ddx*CFG.touchSens;playerPitch+=ddy*CFG.touchSens;
+          playerPitch=Math.max(-.45,Math.min(.95,playerPitch));
+          LOOK.lx=t.clientX;LOOK.ly=t.clientY;
+        }
       });
     },{passive:false});
+
     document.addEventListener('touchend',e=>{
       if(gameRunning)return;
-      e.preventDefault();
       Array.from(e.changedTouches).forEach(t=>{
         if(t.identifier===JOY.id)resetJoy();
         if(t.identifier===LOOK.id){LOOK.active=false;LOOK.id=-1;}
       });
     },{passive:false});
-    document.addEventListener('touchcancel',()=>{if(!gameRunning){resetJoy();LOOK.active=false;LOOK.id=-1;}});
+
+    document.addEventListener('touchcancel',()=>{
+      if(!gameRunning){resetJoy();LOOK.active=false;LOOK.id=-1;}
+    });
 
     // Mobile toggle buttons
     [['m-bldg-btn','bldg-panel',()=>bldgTimer,v=>bldgTimer=v],
