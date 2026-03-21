@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harran Üniversitesi – Kampüs Turu</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@300;400;500&display=swap');
+
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{overflow:hidden;background:#0b0f1a;font-family:'Inter',sans-serif}
+
+/* WELCOME */
+#welcome{position:fixed;inset:0;z-index:200;background:radial-gradient(ellipse at 30% 60%,#1a0a00 0%,#0b0f1a 60%);display:flex;align-items:center;justify-content:center}
+.welcome-card{position:relative;z-index:1;max-width:520px;width:90%;border:1px solid rgba(200,150,50,.25);border-radius:20px;background:rgba(255,255,255,.04);backdrop-filter:blur(20px);padding:48px 44px;text-align:center;box-shadow:0 32px 80px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.08)}
+.uni-crest{font-size:3.2rem;margin-bottom:16px;filter:drop-shadow(0 0 20px rgba(255,200,50,.4))}
+.welcome-card h1{font-family:'Cinzel',serif;font-size:1.65rem;color:#e8c870;font-weight:700;letter-spacing:.06em;line-height:1.3;text-shadow:0 0 30px rgba(232,200,112,.3);margin-bottom:6px}
+.welcome-card .sub{color:rgba(255,255,255,.4);font-size:.85rem;font-weight:300;letter-spacing:.15em;text-transform:uppercase;margin-bottom:32px}
+.controls-grid{display:grid;grid-template-columns:auto 1fr;gap:10px 18px;text-align:left;margin-bottom:36px;background:rgba(255,255,255,.05);border-radius:12px;padding:18px 22px;border:1px solid rgba(255,255,255,.06)}
+.k{background:rgba(232,200,112,.15);border:1px solid rgba(232,200,112,.3);color:#e8c870;font-size:.82rem;font-weight:500;padding:3px 10px;border-radius:6px;font-family:monospace;white-space:nowrap;align-self:center}
+.controls-grid span{color:rgba(255,255,255,.65);font-size:.88rem;align-self:center}
+#start-btn{width:100%;padding:15px;font-family:'Cinzel',serif;font-size:1rem;letter-spacing:.12em;color:#0b0f1a;background:linear-gradient(135deg,#e8c870,#c8922a);border:none;border-radius:12px;cursor:pointer;box-shadow:0 4px 24px rgba(232,200,112,.3);transition:all .2s}
+#start-btn:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(232,200,112,.45)}
+
+/* LOCK */
+#lock-overlay{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);cursor:pointer;pointer-events:none}
+#lock-overlay .lock-card{pointer-events:all;border:1px solid rgba(255,255,255,.15);border-radius:16px;background:rgba(255,255,255,.07);padding:28px 40px;text-align:center;color:white;cursor:pointer}
+#lock-overlay .lock-card p{font-size:1.3rem;margin-bottom:8px}
+#lock-overlay .lock-card small{color:rgba(255,255,255,.5);font-size:.85rem}
+#lock-overlay.hidden{display:none}
+
+/* HUD */
+#crosshair{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:rgba(255,255,255,.85);font-size:22px;pointer-events:none;z-index:10;text-shadow:0 0 6px rgba(0,0,0,.9);line-height:1}
+#controls-hint{position:fixed;bottom:22px;left:22px;z-index:10;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:rgba(255,255,255,.75);font-size:12px;padding:10px 14px;pointer-events:none;line-height:1.8}
+#controls-hint b{color:#e8c870}
+
+/* MINIMAP */
+#mm-wrap{position:fixed;bottom:22px;right:22px;z-index:10}
+#minimap{display:block;border-radius:12px;box-shadow:0 6px 28px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.08)}
+#mm-label{text-align:center;color:rgba(255,255,255,.45);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-top:6px}
+
+/* BUILDING SIDE PANEL */
+#bldg-panel{position:fixed;top:16px;right:0;z-index:150;background:rgba(10,14,26,.92);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.1);border-right:none;border-radius:14px 0 0 14px;padding:14px 0;min-width:174px;box-shadow:-4px 0 28px rgba(0,0,0,.55);pointer-events:all}
+#bldg-panel h3{font-family:'Cinzel',serif;font-size:.72rem;color:#e8c870;letter-spacing:.16em;text-transform:uppercase;text-align:center;padding:0 16px 10px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:6px}
+.bldg-item{display:flex;align-items:center;gap:9px;padding:7px 16px;cursor:pointer;font-size:12.5px;color:rgba(255,255,255,.72);transition:background .15s,color .15s;user-select:none}
+.bldg-item:hover{background:rgba(255,255,255,.07);color:#fff}
+.bldg-item.active{color:#e8c870;background:rgba(232,200,112,.1)}
+.bldg-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+
+/* PROXIMITY LABEL */
+.prox-label{position:fixed;z-index:25;pointer-events:none;background:rgba(8,10,24,.9);backdrop-filter:blur(10px);border:1.5px solid rgba(232,200,112,.65);color:#e8c870;font-size:15px;font-weight:700;font-family:'Cinzel',serif;letter-spacing:.05em;padding:8px 20px;border-radius:10px;transform:translate(-50%,-50%);white-space:nowrap;box-shadow:0 4px 22px rgba(0,0,0,.55)}
+
+/* BUBBLES */
+.bubble{position:fixed;z-index:30;pointer-events:none;background:white;color:#1a1a2e;font-size:13px;font-weight:500;padding:9px 14px;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,.25);transform:translate(-50%,-120%);white-space:nowrap;max-width:210px;animation:popIn .22s cubic-bezier(.34,1.56,.64,1)}
+.bubble::after{content:'';position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);border:8px solid transparent;border-top-color:white;border-bottom:none}
+@keyframes popIn{from{opacity:0;transform:translate(-50%,-90%) scale(.8)}to{opacity:1;transform:translate(-50%,-120%) scale(1)}}
+</style>
+</head>
+<body>
+
+<div id="welcome">
+  <div class="welcome-card">
+    <div class="uni-crest">🏛️</div>
+    <h1>Harran Üniversitesi</h1>
+    <p class="sub">Kampüs Sanal Turu</p>
+    <div class="controls-grid">
+      <span class="k">W</span><span>İleri yürü</span>
+      <span class="k">S</span><span>Geri yürü</span>
+      <span class="k">Fare</span><span>Kamera &amp; yön</span>
+      <span class="k">ESC</span><span>Fareyi serbest bırak</span>
+    </div>
+    <button id="start-btn">Kampüse Gir </button>
+  </div>
+</div>
+
+<div id="lock-overlay" class="hidden">
+  <div class="lock-card">
+    <p>🖱️ Tıklayın &amp; Başlayın</p>
+    <small>Fare kontrolü için ekrana tıklayın</small>
+  </div>
+</div>
+
+<div id="crosshair">·</div>
+<div id="controls-hint">
+  <b>W / S</b> İleri / Geri &nbsp;|&nbsp; <b>Fare</b> Yön<br>
+  <b>ESC</b> → Panel için fareyi serbest bırak 🗺️<br>
+  Öğrencilere yaklaşın! 🎒
+</div>
+
+<div id="mm-wrap">
+  <canvas id="minimap" width="165" height="165"></canvas>
+  <div id="mm-label">Kampüs Haritası</div>
+</div>
+
+<div id="bldg-panel"><h3>🏢 Binalar</h3></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+
+/* ── CONFIG ─────────────────────────────────────────── */
+const CFG={walkSpeed:6.5,npcSpeed:1.9,npcCount:18,camDist:8.5,camHeightBase:3.8,speakDist:11,greetCool:9,bubbleDurMs:4000,mouseSens:0.0022,proxDist:20};
+
+const DIALOGUES=["Merhaba! ","Bugün dersin var mı?","Kütüphaneye gidiyorum!","Yemekhanede buluşalım!","Sınavlar yaklaşıyor ","Proje ödevim bitmedi!","Harran'a hoş geldin! 🎓","Nasılsın, iyi misin?","Kampüs çok güzel değil mi?","Şimdi derse gidiyorum.","Bugün hava çok güzel!","Bize katıl! ","Handan hoca odasında yok!","Koridorda görüşürüz!","Diffden yine kaldım","Abdullah Hoca nerde!","Ödev teslimi yarın..."];
+
+const BUILDINGS=[
+  {x:0,  z:-62,w:42,h:19,d:22,color:0xc9986a,css:'#c9986a',name:"Rektörlük"},
+  {x:-56,z:-46,w:29,h:15,d:19,color:0x6a8faf,css:'#6a8faf',name:"Kütüphane"},
+  {x:56, z:-46,w:29,h:15,d:19,color:0x6a8faf,css:'#6a8faf',name:"Mühendislik Fak."},
+  {x:-56,z:14, w:25,h:13,d:18,color:0x78a878,css:'#78a878',name:"Fen-Edebiyat Fak."},
+  {x:56, z:14, w:25,h:13,d:18,color:0x78a878,css:'#78a878',name:"İktisadi Bilimler"},
+  {x:0,  z:26, w:34,h:8, d:22,color:0xd4a96a,css:'#d4a96a',name:"Yemekhane"},
+  {x:-80,z:-66,w:18,h:22,d:30,color:0xa07cb0,css:'#a07cb0',name:"Göbekli Tepe Yurdu"},
+  {x:80, z:-66,w:18,h:22,d:30,color:0xa07cb0,css:'#a07cb0',name:"Hacer Ana Yurdu"},
+  {x:-30,z:-87,w:19,h:11,d:15,color:0x7aaac4,css:'#7aaac4',name:"Besyo"},
+  {x:30, z:-87,w:19,h:11,d:15,color:0x7aaac4,css:'#7aaac4',name:"Harran Tıp"},
+  {x:0,  z:-33,w:12,h:5, d:12,color:0xc4b08a,css:'#c4b08a',name:"Güvenlik"},
+];
+
+const NPC_COLORS=[0xe74c3c,0x2ecc71,0x3498db,0x9b59b6,0xe67e22,0x1abc9c,0xf39c12,0x27ae60,0xe91e63,0x00bcd4,0xff5722,0x607d8b];
+
+/* ── STATE ──────────────────────────────────────────── */
+let renderer,scene,camera;
+let player,playerYaw=0,playerPitch=0.18;
+let npcs=[],buildingAABBs=[],activeBubbles=[];
+let proxLabels=[];
+let highlightIdx=-1,blinkOn=true,blinkTimer=0;
+let keys={},isLocked=false;
+let mmCtx,audioCtx=null;
+let lastT=0;
+
+/* ── INIT ───────────────────────────────────────────── */
+function initGame(){
+  renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(innerWidth,innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.shadowMap.enabled=true;
+  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  renderer.setClearColor(0x87ceeb);
+  document.body.appendChild(renderer.domElement);
+
+  scene=new THREE.Scene();
+  scene.fog=new THREE.Fog(0x87ceeb,70,170);
+  camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,0.1,500);
+
+  buildScene();
+  createPlayer();
+  spawnNPCs();
+  buildSidePanel();
+  buildProxLabels();
+  setupControls();
+
+  mmCtx=document.getElementById('minimap').getContext('2d');
+  window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+  requestAnimationFrame(loop);
+}
+
+/* ── SCENE ──────────────────────────────────────────── */
+function buildScene(){
+  scene.add(new THREE.AmbientLight(0xfff3e0,0.55));
+  const sun=new THREE.DirectionalLight(0xfff4cc,1.15);
+  sun.position.set(70,100,50);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
+  const sc=sun.shadow.camera;sc.left=sc.bottom=-140;sc.right=sc.top=140;sc.far=450;
+  scene.add(sun);scene.add(new THREE.HemisphereLight(0x87ceeb,0x6b5033,0.4));
+
+  const gnd=new THREE.Mesh(new THREE.PlaneGeometry(320,320),new THREE.MeshLambertMaterial({color:0x518a3e}));
+  gnd.rotation.x=-Math.PI/2;gnd.receiveShadow=true;scene.add(gnd);
+
+  const pathMat=new THREE.MeshLambertMaterial({color:0xcab896});
+  [[0,0,9,175],[0,-46,155,9],[0,14,130,7],[-28,-70,7,50],[28,-70,7,50]].forEach(([x,z,w,d])=>addPlane(x,z,w,d,pathMat,0.02));
+  addPlane(0,-20,30,30,new THREE.MeshLambertMaterial({color:0xbfa882}),0.03);
+
+  BUILDINGS.forEach(addBuilding);
+
+  [[-16,-22],[16,-22],[-16,-33],[16,-33],[-9,-9],[9,-9],[-32,6],[32,6],[-22,44],[22,44],[0,50],[-44,-26],[44,-26],[-72,6],[72,6],[-26,-74],[26,-74],[0,-37],[-6,-35],[6,-35],[-45,44],[45,44],[-20,58],[20,58]]
+  .forEach(([x,z])=>addTree(x,z,.85+Math.random()*.4));
+
+  [[6,2],[-6,2],[6,-28],[-6,-28],[6,-58],[-6,-58],[32,-24],[-32,-24],[32,-64],[-32,-64],[0,-2],[0,-50]]
+  .forEach(([x,z])=>addLamp(x,z));
+
+  addWelcomeArch();
+}
+
+function addPlane(x,z,w,d,mat,dy=0){
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),mat);
+  m.rotation.x=-Math.PI/2;m.position.set(x,dy,z);scene.add(m);
+}
+
+function addBuilding({x,z,w,h,d,color}){
+  const mat=new THREE.MeshLambertMaterial({color});
+  const body=boxMesh(w,h,d,mat);body.position.set(x,h/2,z);body.castShadow=body.receiveShadow=true;scene.add(body);
+  const roof=boxMesh(w+.6,.8,d+.6,new THREE.MeshLambertMaterial({color:darken(color,.7)}));roof.position.set(x,h+.4,z);scene.add(roof);
+  const winMat=new THREE.MeshLambertMaterial({color:0x9ecae1,transparent:true,opacity:.85});
+  const cols=Math.max(2,Math.floor(w/5)),rows=Math.max(1,Math.floor(h/4));
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    const wm=boxMesh(1.5,1.2,.12,winMat);wm.position.set(x+(c-(cols-1)/2)*(w/cols),2+r*3.3,z+d/2+.07);scene.add(wm);
+  }
+  const door=boxMesh(2.2,3.2,.15,new THREE.MeshLambertMaterial({color:darken(color,.5)}));door.position.set(x,1.6,z+d/2+.08);scene.add(door);
+  buildingAABBs.push({x0:x-w/2,x1:x+w/2,z0:z-d/2,z1:z+d/2});
+}
+
+function addTree(x,z,s=1){
+  const g=new THREE.Group();
+  g.add(cyl(.22*s,.32*s,2.5*s,7,0x7a5c1e,0,1.25*s,0));
+  const fc=new THREE.MeshLambertMaterial({color:0x2a6332});
+  [[2.4,3.2],[1.85,4.7],[1.2,5.9]].forEach(([r,hy])=>{const sp=new THREE.Mesh(new THREE.SphereGeometry(r*s,9,7),fc);sp.position.set(0,hy*s,0);sp.castShadow=true;g.add(sp)});
+  g.position.set(x,0,z);scene.add(g);
+}
+
+function addLamp(x,z){
+  scene.add(cyl(.07,.1,5.5,6,0x555555,x,2.75,z));
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.3,8,8),new THREE.MeshLambertMaterial({color:0xffffaa,emissive:0xffffaa,emissiveIntensity:.7}));
+  head.position.set(x,5.7,z);scene.add(head);
+  const pl=new THREE.PointLight(0xfff0a0,1.0,16);pl.position.set(x,5.5,z);scene.add(pl);
+}
+
+function addWelcomeArch(){
+  const red=new THREE.MeshLambertMaterial({color:0x8b1818});
+
+  // Pillars
+  [-10,10].forEach(px=>{
+    const p=boxMesh(1.8,10,1.8,red);p.position.set(px,5,82);p.castShadow=true;scene.add(p);
+    buildingAABBs.push({x0:px-1,x1:px+1,z0:81,z1:83});
+  });
+
+  // Crossbar split LEFT & RIGHT so middle is clear for the sign
+  const bL=boxMesh(7,2.2,1.6,red);bL.position.set(-7.5,10.5,82);scene.add(bL);
+  const bR=boxMesh(7,2.2,1.6,red);bR.position.set( 7.5,10.5,82);scene.add(bR);
+  // Thin top & bottom rails across full width
+  const tR=boxMesh(22,.4,1.6,red);tR.position.set(0,11.65,82);scene.add(tR);
+  const bB=boxMesh(22,.4,1.6,red);bB.position.set(0, 9.45,82);scene.add(bB);
+
+  // Sign canvas – larger, readable
+  const cv=document.createElement('canvas');cv.width=512;cv.height=128;
+  const c=cv.getContext('2d');
+  const gr=c.createLinearGradient(0,0,512,0);
+  gr.addColorStop(0,'#6b0e0e');gr.addColorStop(.5,'#9e1a1a');gr.addColorStop(1,'#6b0e0e');
+  c.fillStyle=gr;c.fillRect(0,0,512,128);
+  c.strokeStyle='#e8c870';c.lineWidth=5;c.strokeRect(5,5,502,118);
+  c.fillStyle='#e8c870';c.textAlign='center';c.textBaseline='middle';
+  c.font='bold 33px Georgia,serif';c.fillText("Harran Üniversitesi'ne",256,44);
+  c.font='bold 31px Georgia,serif';c.fillText("Hoş Geldiniz! 🎓",256,88);
+
+  // Sign mesh – depthTest off so it's never occluded by the arch geometry
+  const sign=new THREE.Mesh(
+    new THREE.PlaneGeometry(9.5,2.1),
+    new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(cv),side:THREE.DoubleSide,depthTest:false})
+  );
+  sign.renderOrder=999;          // draw last = always on top
+  sign.position.set(0,10.55,82); // centered in the clear gap
+  scene.add(sign);
+}
+
+/* ── PLAYER ─────────────────────────────────────────── */
+function createPlayer(){
+  player=makeHumanoid(0x1a4f8a,0x1a2a3a);player.position.set(0,0,74);scene.add(player);
+}
+
+function makeHumanoid(bc,lc){
+  const g=new THREE.Group();
+  const sk=new THREE.MeshLambertMaterial({color:0xf0c8a0});
+  const bm=new THREE.MeshLambertMaterial({color:bc});
+  const lm=new THREE.MeshLambertMaterial({color:lc});
+  const sm=new THREE.MeshLambertMaterial({color:0x1a1a1a});
+  const add=(geo,mat,x,y,z)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=true;g.add(m);return m};
+  g.torso=add(new THREE.BoxGeometry(.62,.82,.32),bm,0,1.22,0);
+  g.head =add(new THREE.BoxGeometry(.44,.44,.44),sk,0,1.95,0);
+  g.lArm =add(new THREE.BoxGeometry(.21,.68,.21),bm,-.45,1.12,0);
+  g.rArm =add(new THREE.BoxGeometry(.21,.68,.21),bm, .45,1.12,0);
+  g.lLeg =add(new THREE.BoxGeometry(.24,.72,.24),lm,-.18,.44,0);
+  g.rLeg =add(new THREE.BoxGeometry(.24,.72,.24),lm, .18,.44,0);
+  add(new THREE.BoxGeometry(.26,.18,.34),sm,-.18,.06,.05);
+  add(new THREE.BoxGeometry(.26,.18,.34),sm, .18,.06,.05);
+  g.walkPh=0;return g;
+}
+
+function walkAnim(hum,dt,moving){
+  if(moving){hum.walkPh+=dt*5.8;const s=Math.sin(hum.walkPh)*.52;hum.lArm.rotation.x=s;hum.rArm.rotation.x=-s;hum.lLeg.rotation.x=-s;hum.rLeg.rotation.x=s;}
+  else{hum.lArm.rotation.x*=.8;hum.rArm.rotation.x*=.8;hum.lLeg.rotation.x*=.8;hum.rLeg.rotation.x*=.8;}
+}
+
+/* ── NPCs ───────────────────────────────────────────── */
+function spawnNPCs(){
+  const zones=[[0,54,13],[0,-18,13],[-38,2,10],[38,2,10],[0,-36,8],[-12,42,8],[12,42,8],[-55,-20,8],[55,-20,8]];
+  for(let i=0;i<CFG.npcCount;i++){
+    const[zx,zz,zr]=zones[i%zones.length];
+    const a=Math.random()*Math.PI*2,r=Math.random()*zr;
+    const npc=makeHumanoid(NPC_COLORS[i%NPC_COLORS.length],0x1a2a3a);
+    npc.position.set(zx+Math.cos(a)*r,0,zz+Math.sin(a)*r);
+    npc.userData={target:new THREE.Vector3(zx+Math.cos(a)*r,0,zz+Math.sin(a)*r),state:'walk',stateT:Math.random()*5,greetT:0,speed:CFG.npcSpeed*(.7+Math.random()*.65),bubble:null,bubbleExpiry:0};
+    scene.add(npc);npcs.push(npc);pickTarget(npc);
+  }
+}
+
+function pickTarget(npc){
+  let t=0,tx,tz;
+  do{tx=(Math.random()-.5)*140;tz=(Math.random()-.5)*140;t++}while(inBuilding(tx,tz,2.5)&&t<25);
+  npc.userData.target.set(tx,0,tz);
+}
+
+/* ── BUILDING SIDE PANEL ─────────────────────────────── */
+function buildSidePanel(){
+  const panel=document.getElementById('bldg-panel');
+  BUILDINGS.forEach((b,i)=>{
+    const item=document.createElement('div');item.className='bldg-item';item.dataset.idx=i;
+    const dot=document.createElement('div');dot.className='bldg-dot';dot.style.background=b.css;dot.style.boxShadow=`0 0 6px ${b.css}88`;
+    item.appendChild(dot);item.appendChild(document.createTextNode(b.name));
+    item.addEventListener('click',()=>{
+      if(highlightIdx===i){highlightIdx=-1;item.classList.remove('active');}
+      else{document.querySelectorAll('.bldg-item').forEach(el=>el.classList.remove('active'));highlightIdx=i;item.classList.add('active');}
+    });
+    panel.appendChild(item);
+  });
+}
+
+/* ── PROXIMITY LABELS ────────────────────────────────── */
+function buildProxLabels(){
+  BUILDINGS.forEach(b=>{
+    const el=document.createElement('div');el.className='prox-label';el.textContent=b.name;el.style.display='none';
+    document.body.appendChild(el);proxLabels.push({el,bldg:b});
+  });
+}
+
+function updateProxLabels(){
+  proxLabels.forEach(({el,bldg})=>{
+    const dx=player.position.x-bldg.x,dz=player.position.z-bldg.z;
+    const dist=Math.sqrt(dx*dx+dz*dz);
+    if(dist<CFG.proxDist){
+      // Project point at front-face center, mid-height
+      const sc=worldToScreen(bldg.x,bldg.h*0.5,bldg.z-bldg.d*0.5-0.5);
+      if(sc&&sc.x>0&&sc.x<innerWidth&&sc.y>60&&sc.y<innerHeight-60){
+        el.style.left=sc.x+'px';el.style.top=sc.y+'px';el.style.display='';
+        const fade=Math.min(1,(CFG.proxDist-dist)/6);
+        el.style.opacity=fade.toFixed(2);
+      } else el.style.display='none';
+    } else el.style.display='none';
+  });
+}
+
+/* ── MAIN LOOP ──────────────────────────────────────── */
+function loop(t){
+  requestAnimationFrame(loop);
+  const dt=Math.min((t-lastT)/1000,.05);lastT=t;
+  blinkTimer+=dt;if(blinkTimer>.45){blinkOn=!blinkOn;blinkTimer=0;}
+  updatePlayer(dt);updateNPCs(dt);updateCamera();updateProxLabels();updateBubbles();drawMinimap();
+  renderer.render(scene,camera);
+}
+
+/* ── UPDATE PLAYER ──────────────────────────────────── */
+function updatePlayer(dt){
+  const fwd=keys['KeyW']||keys['ArrowUp'];
+  const back=keys['KeyS']||keys['ArrowDown'];
+  const moving=fwd||back;
+  // fwd: dir=-1 (negative z is forward with yaw=0)
+  // back: dir=+1
+  const dir=fwd?-1:(back?1:0);
+
+  if(moving){
+    const px=player.position.x,pz=player.position.z;
+    let nx=px+Math.sin(playerYaw)*dir*CFG.walkSpeed*dt;
+    let nz=pz+Math.cos(playerYaw)*dir*CFG.walkSpeed*dt;
+    nx=Math.max(-94,Math.min(94,nx));nz=Math.max(-98,Math.min(86,nz));
+    if(!inBuilding(nx,pz,.75))player.position.x=nx;
+    if(!inBuilding(player.position.x,nz,.75))player.position.z=nz;
+  }
+  player.rotation.y=playerYaw;
+  walkAnim(player,dt,moving);
+}
+
+/* ── UPDATE NPCs ────────────────────────────────────── */
+function updateNPCs(dt){
+  const pp=player.position;
+  npcs.forEach(npc=>{
+    const ud=npc.userData;
+    ud.stateT-=dt;if(ud.greetT>0)ud.greetT-=dt;
+    const dist=npc.position.distanceTo(pp);
+    if(dist<CFG.speakDist&&ud.greetT<=0){ud.greetT=CFG.greetCool;ud.state='talk';ud.stateT=3;showBubble(npc,rnd(DIALOGUES));playMurmur();}
+    if(ud.stateT<=0){
+      const r=Math.random();
+      if(ud.state==='walk'){if(r<.25){ud.state='talk';ud.stateT=2+Math.random()*3;showBubble(npc,rnd(DIALOGUES));playMurmur();}else if(r<.45){ud.state='idle';ud.stateT=1.2+Math.random()*2;}else{pickTarget(npc);ud.stateT=5+Math.random()*10;}}
+      else{ud.state='walk';ud.stateT=4+Math.random()*9;pickTarget(npc);}
+    }
+    if(ud.state==='walk'){
+      const dx=ud.target.x-npc.position.x,dz=ud.target.z-npc.position.z;
+      const d2=Math.sqrt(dx*dx+dz*dz);
+      if(d2>1){
+        const nx=npc.position.x+(dx/d2)*ud.speed*dt,nz=npc.position.z+(dz/d2)*ud.speed*dt;
+        if(!inBuilding(nx,npc.position.z,.55))npc.position.x=nx;else pickTarget(npc);
+        if(!inBuilding(npc.position.x,nz,.55))npc.position.z=nz;else pickTarget(npc);
+        npc.rotation.y=Math.atan2(-dx,-dz);walkAnim(npc,dt,true);
+      } else pickTarget(npc);
+    } else walkAnim(npc,dt,false);
+
+    if(ud.bubble){
+      const sc=worldToScreen(npc.position.x,2.6,npc.position.z);
+      if(sc&&dist<32){ud.bubble.style.left=sc.x+'px';ud.bubble.style.top=sc.y+'px';ud.bubble.style.display='';}
+      else ud.bubble.style.display='none';
+    }
+  });
+}
+
+/* ── CAMERA ─────────────────────────────────────────── */
+function updateCamera(){
+  const hd=Math.cos(Math.max(-.1,playerPitch))*CFG.camDist;
+  const hy=CFG.camHeightBase+Math.sin(playerPitch)*CFG.camDist;
+  camera.position.set(player.position.x+Math.sin(playerYaw)*hd,player.position.y+hy,player.position.z+Math.cos(playerYaw)*hd);
+  camera.lookAt(player.position.x,player.position.y+1.7,player.position.z);
+}
+
+/* ── SPEECH BUBBLES ──────────────────────────────────── */
+function showBubble(npc,text){
+  if(npc.userData.bubble){npc.userData.bubble.remove();activeBubbles=activeBubbles.filter(b=>b.npc!==npc);}
+  const el=document.createElement('div');el.className='bubble';el.textContent=text;
+  document.body.appendChild(el);npc.userData.bubble=el;npc.userData.bubbleExpiry=Date.now()+CFG.bubbleDurMs;
+  activeBubbles.push({el,npc});
+}
+function updateBubbles(){
+  const now=Date.now();
+  for(let i=activeBubbles.length-1;i>=0;i--){const b=activeBubbles[i];if(now>b.npc.userData.bubbleExpiry){b.el.remove();b.npc.userData.bubble=null;activeBubbles.splice(i,1);}}
+}
+
+/* ── MINIMAP ─────────────────────────────────────────── */
+function drawMinimap(){
+  const ctx=mmCtx,S=165,sc=S/230;
+  ctx.clearRect(0,0,S,S);
+
+  ctx.fillStyle='rgba(10,18,10,.9)';ctx.beginPath();rr(ctx,0,0,S,S,12);ctx.fill();
+  const tm=(wx,wz)=>[S/2+wx*sc,S/2+wz*sc];
+  ctx.fillStyle='rgba(40,72,40,.55)';ctx.beginPath();rr(ctx,4,4,S-8,S-8,9);ctx.fill();
+
+  // Paths
+  ctx.strokeStyle='rgba(200,185,145,.5)';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(S/2,4);ctx.lineTo(S/2,S-4);ctx.stroke();
+  const[,mz46]=tm(0,-46);ctx.beginPath();ctx.moveTo(4,mz46);ctx.lineTo(S-4,mz46);ctx.stroke();
+
+  // Buildings
+  BUILDINGS.forEach(({x,z,w,d},i)=>{
+    const[mx,mz]=tm(x,z);
+    const bw=w*sc,bd=d*sc,bx=mx-bw/2,bz=mz-bd/2;
+    const isHL=(i===highlightIdx);
+    if(isHL&&blinkOn){
+      ctx.shadowColor='#e8c870';ctx.shadowBlur=10;
+      ctx.fillStyle='#ffe97a';ctx.fillRect(bx-2,bz-2,bw+4,bd+4);
+      ctx.shadowBlur=0;
+    }
+    ctx.fillStyle=isHL?'#e8c870':'#6888b8';
+    ctx.fillRect(bx,bz,bw,bd);
+  });
+
+  // NPCs
+  ctx.fillStyle='#4ecdc4';
+  npcs.forEach(n=>{const[mx,mz]=tm(n.position.x,n.position.z);if(mx>0&&mx<S&&mz>0&&mz<S){ctx.beginPath();ctx.arc(mx,mz,2.2,0,Math.PI*2);ctx.fill();}});
+
+  // Player
+  const[px,pz]=tm(player.position.x,player.position.z);
+  ctx.fillStyle='#ff5555';ctx.beginPath();ctx.arc(px,pz,5,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#ff5555';ctx.lineWidth=2.2;ctx.beginPath();ctx.moveTo(px,pz);ctx.lineTo(px-Math.sin(playerYaw)*11,pz-Math.cos(playerYaw)*11);ctx.stroke();
+
+  ctx.fillStyle='rgba(255,255,255,.35)';ctx.font='9px Inter,Arial';ctx.textAlign='right';ctx.textBaseline='top';ctx.fillText('N',S-6,6);
+  ctx.strokeStyle='rgba(255,255,255,.15)';ctx.lineWidth=1.5;ctx.beginPath();rr(ctx,1,1,S-2,S-2,11);ctx.stroke();
+}
+
+function rr(ctx,x,y,w,h,r){ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();}
+
+/* ── CONTROLS ────────────────────────────────────────── */
+function setupControls(){
+  window.addEventListener('keydown',e=>{keys[e.code]=true;if(['KeyW','KeyS','ArrowUp','ArrowDown','Space'].includes(e.code))e.preventDefault()});
+  window.addEventListener('keyup',e=>{keys[e.code]=false});
+
+  const overlay=document.getElementById('lock-overlay');
+  renderer.domElement.addEventListener('click',()=>{if(!isLocked)renderer.domElement.requestPointerLock()});
+  overlay.addEventListener('click',()=>{if(!isLocked)renderer.domElement.requestPointerLock()});
+
+  document.addEventListener('pointerlockchange',()=>{
+    isLocked=document.pointerLockElement===renderer.domElement;
+    overlay.classList.toggle('hidden',isLocked);
+  });
+
+  document.addEventListener('mousemove',e=>{
+    if(!isLocked)return;
+    playerYaw-=e.movementX*CFG.mouseSens;
+    // DÜZELTİLDİ: += ile mouse yukarı = yukarı bakış ✓
+    playerPitch+=e.movementY*CFG.mouseSens;
+    playerPitch=Math.max(-.45,Math.min(.95,playerPitch));
+  });
+}
+
+/* ── AUDIO ───────────────────────────────────────────── */
+function initAudio(){
+  // ── 1. Kullanıcının dış ortam ses dosyası ──────────────
+  // Dosyanın HTML ile aynı klasörde olması gerekiyor (src/ altında)
+  const amb=new Audio();
+  ['./Sound_Effects_Outdoor.mp3','./Sound_Effects_Outdoor.ogg','./Sound_Effects_Outdoor.wav']
+    .forEach(src=>{const s=document.createElement('source');s.src=src;amb.appendChild(s)});
+  amb.loop=true;amb.volume=0.5;
+  amb.play().catch(()=>console.warn('Ambient dosyası bulunamadı, synth ses aktif.'));
+
+  // ── 2. Procedural kuş / rüzgar (her zaman açık) ────────
+  try{
+    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+
+    // Rüzgar
+    const bufSz=audioCtx.sampleRate*3;
+    const buf=audioCtx.createBuffer(1,bufSz,audioCtx.sampleRate);
+    const data=buf.getChannelData(0);for(let i=0;i<bufSz;i++)data[i]=Math.random()*2-1;
+    const ns=audioCtx.createBufferSource();ns.buffer=buf;ns.loop=true;
+    const flt=audioCtx.createBiquadFilter();flt.type='bandpass';flt.frequency.value=320;flt.Q.value=.28;
+    const gn=audioCtx.createGain();gn.gain.value=.028;
+    ns.connect(flt);flt.connect(gn);gn.connect(audioCtx.destination);ns.start();
+    const lfo=audioCtx.createOscillator();const lfoG=audioCtx.createGain();lfoG.gain.value=.01;
+    lfo.frequency.value=.4;lfo.type='sine';lfo.connect(lfoG);lfoG.connect(gn.gain);lfo.start();
+
+    scheduleChirp();
+  }catch(e){console.warn('AudioContext:',e);}
+}
+
+function scheduleChirp(){if(!audioCtx)return;setTimeout(()=>{playChirp();scheduleChirp();},2200+Math.random()*5500);}
+function playChirp(){
+  if(!audioCtx)return;
+  const o=audioCtx.createOscillator(),g=audioCtx.createGain(),now=audioCtx.currentTime;
+  o.type='sine';o.frequency.setValueAtTime(1050+Math.random()*700,now);o.frequency.exponentialRampToValueAtTime(700+Math.random()*350,now+.2);
+  g.gain.setValueAtTime(.13,now);g.gain.exponentialRampToValueAtTime(.001,now+.24);
+  o.connect(g);g.connect(audioCtx.destination);o.start(now);o.stop(now+.25);
+  if(Math.random()>.45)setTimeout(playChirp,180+Math.random()*220);
+}
+function playMurmur(){
+  if(!audioCtx)return;
+  const now=audioCtx.currentTime;const o=audioCtx.createOscillator(),f=audioCtx.createBiquadFilter(),g=audioCtx.createGain();
+  o.type='sawtooth';o.frequency.value=120+Math.random()*80;f.type='lowpass';f.frequency.value=350;
+  g.gain.setValueAtTime(0,now);g.gain.linearRampToValueAtTime(.07,now+.1);g.gain.linearRampToValueAtTime(0,now+.65);
+  o.connect(f);f.connect(g);g.connect(audioCtx.destination);o.start(now);o.stop(now+.7);
+}
+
+/* ── HELPERS ─────────────────────────────────────────── */
+function inBuilding(x,z,m){for(const b of buildingAABBs)if(x>b.x0-m&&x<b.x1+m&&z>b.z0-m&&z<b.z1+m)return true;return false;}
+function worldToScreen(wx,wy,wz){const v=new THREE.Vector3(wx,wy,wz).project(camera);if(v.z>1)return null;return{x:(v.x*.5+.5)*innerWidth,y:(-v.y*.5+.5)*innerHeight};}
+function boxMesh(w,h,d,mat){return new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);}
+function cyl(rt,rb,h,seg,color,x,y,z){const m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg),new THREE.MeshLambertMaterial({color}));m.position.set(x,y,z);m.castShadow=true;return m;}
+function darken(hex,f){return(Math.floor(((hex>>16)&0xff)*f)<<16)|(Math.floor(((hex>>8)&0xff)*f)<<8)|Math.floor((hex&0xff)*f);}
+function rnd(arr){return arr[Math.floor(Math.random()*arr.length)];}
+
+/* ── BOOTSTRAP ───────────────────────────────────────── */
+document.getElementById('start-btn').addEventListener('click',()=>{
+  document.getElementById('welcome').style.display='none';
+  document.getElementById('lock-overlay').classList.remove('hidden');
+  initGame();
+  initAudio();
+});
+</script> 
+</body>
+</html>
