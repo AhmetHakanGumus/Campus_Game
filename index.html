@@ -1039,6 +1039,136 @@
             mainRafId = 0;
         }
 
+        /* ════════════════════════════════════════════════
+           VR ALGILAMA ve KURULUM
+           ─────────────────────────────────────────────
+           1. detectAndSetupVR(): Tarayıcı VR destekliyor mu
+              kontrol eder. Destekliyorsa setupVR() çağırır.
+           2. setupVR(): xrRig, kontrolcüler, olay dinleyiciler
+              ve "Enter VR" butonunu oluşturur.
+           3. VR yoksa bu fonksiyonlar hiç çağrılmaz, oyun
+              normal masaüstü/mobil modda çalışmaya devam eder.
+        ════════════════════════════════════════════════ */
+        function detectAndSetupVR() {
+            // WebXR API var mı?
+            if (!navigator.xr || typeof navigator.xr.isSessionSupported !== 'function') {
+                console.log('WebXR API bulunamadı – VR devre dışı');
+                return;
+            }
+            // immersive-vr destekleniyor mu?
+            navigator.xr.isSessionSupported('immersive-vr')
+                .then((supported) => {
+                    if (!supported) {
+                        console.log('immersive-vr desteklenmiyor – VR devre dışı');
+                        return;
+                    }
+                    console.log('VR cihazı algılandı – VR kuruluyor');
+                    xrSupported = true;
+                    setupVR();
+                })
+                .catch((err) => {
+                    console.warn('VR destek kontrolü başarısız:', err);
+                    xrSupported = false;
+                });
+        }
+
+        function setupVR() {
+            /* ── 1) Renderer XR'ı etkinleştir ────────── */
+            renderer.xr.enabled = true;
+
+            /* ── 2) Oyuncu kafesi (rig) oluştur ──────── */
+            xrRig = new THREE.Group();
+            xrRig.position.set(
+                player ? player.position.x : 0,
+                0,
+                player ? player.position.z : 74
+            );
+            scene.add(xrRig);
+            // ❌ camera xrRig'e EKLENMİYOR
+            // Normal modda kamera scene'de serbest kalır.
+            // Sadece VR oturumu başlayınca bağlanır.
+
+            /* ── 3) Kontrolcüleri (el) ekle ───────────── */
+            xrCtrl0 = renderer.xr.getController(0); // Sol el
+            xrCtrl1 = renderer.xr.getController(1); // Sağ el
+            xrRig.add(xrCtrl0);
+            xrRig.add(xrCtrl1);
+
+            // Kontrolcü görselleri: ince çubuk + ray çizgisi
+            const ctrlGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.18, 8);
+            const ctrlMat = new THREE.MeshLambertMaterial({ color: 0xff4444 });
+            [xrCtrl0, xrCtrl1].forEach(ctrl => {
+                const mesh = new THREE.Mesh(ctrlGeo, ctrlMat);
+                mesh.rotation.x = Math.PI / 2;
+                mesh.position.z = -0.09;
+                ctrl.add(mesh);
+                const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(0, 0, 0),
+                    new THREE.Vector3(0, 0, -2)
+                ]);
+                ctrl.add(new THREE.Line(lineGeo,
+                    new THREE.LineBasicMaterial({ color: 0xff8888, transparent: true, opacity: .4 })));
+            });
+
+            /* ── 4) Raycast (trigger ile spot tespiti) ── */
+            xrRaycaster = new THREE.Raycaster();
+            xrCtrl1.addEventListener('selectstart', () => {
+                if (!activeSpot) return;
+                document.getElementById('interact-prompt').style.display = 'none';
+                startGame(activeSpot.game, activeSpot.id, activeSpot.title);
+            });
+
+            /* ── 5) VR oturum olayları ───────────────── */
+            renderer.xr.addEventListener('sessionstart', () => {
+                xrActive = true;
+                stopNonVRLoop();
+
+                // Kamerayı scene'den çıkar → xrRig'e bağla
+                scene.remove(camera);
+                xrRig.add(camera);
+                camera.position.set(0, 1.6, 0); // Göz yüksekliği
+                camera.rotation.set(0, 0, 0);
+
+                // Rig'i oyuncunun bulunduğu yere taşı
+                if (player) {
+                    xrRig.position.set(player.position.x, 0, player.position.z);
+                    xrRig.rotation.y = playerYaw;
+                }
+
+                renderer.setAnimationLoop(loop);
+                console.log('VR oturumu başladı');
+            });
+
+            renderer.xr.addEventListener('sessionend', () => {
+                xrActive = false;
+                renderer.setAnimationLoop(null);
+
+                // Kamerayı xrRig'den çıkar → scene'e geri ekle
+                xrRig.remove(camera);
+                scene.add(camera);
+
+                // Oyuncu pozisyonunu VR rig'den senkronize et
+                if (player) {
+                    player.position.x = xrRig.position.x;
+                    player.position.z = xrRig.position.z;
+                    playerYaw = xrRig.rotation.y;
+                }
+
+                startNonVRLoop();
+                console.log('VR oturumu sona erdi');
+            });
+
+            /* ── 6) "Enter VR" butonunu göster ───────── */
+            if (typeof THREE.VRButton !== 'undefined') {
+                const vrBtn = THREE.VRButton.createButton(renderer);
+                vrBtn.style.cssText += ';z-index:50;bottom:80px;';
+                document.body.appendChild(vrBtn);
+                console.log('"Enter VR" butonu eklendi');
+            } else {
+                console.warn('THREE.VRButton yüklenemedi');
+            }
+        }
+
         /* ════════════════ INIT ═════════════════════════ */
         function initGame() {
             if (IS_MOB) mmSize = 130;
@@ -1058,105 +1188,15 @@
             camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, .1, 500);
 
             /* ══════════════════════════════════════════════
-               VR RIG KURULUMU
+               VR KONTROLÜ
                ─────────────────────────────────────────────
-               ÖNEMLİ: Kamera normal modda scene'de serbest
-               kalır. Sadece VR oturumu başlayınca xrRig'e
-               eklenir, bitince geri çıkarılır.
-               Bu sayede PC ve mobil kontrolleri bozulmaz.
+               Tarayıcı immersive-vr destekliyorsa setupVR()
+               çağrılır ve "Enter VR" butonu gösterilir.
+               Desteklemiyorsa hiçbir VR objesi oluşturulmaz,
+               oyun normal masaüstü/mobil modda çalışır.
             ══════════════════════════════════════════════ */
-            xrRig = new THREE.Group();
-            xrRig.position.set(0, 0, 74);
-            scene.add(xrRig);
-            // ❌ xrRig.add(camera) YAPILMIYOR – kamera scene'de kalıyor
-
-            // VR kontrolcüleri (sadece VR modunda görünür)
-            xrCtrl0 = renderer.xr.getController(0);
-            xrCtrl1 = renderer.xr.getController(1);
-            xrRig.add(xrCtrl0);
-            xrRig.add(xrCtrl1);
-
-            const ctrlGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.18, 8);
-            const ctrlMat = new THREE.MeshLambertMaterial({ color: 0xff4444 });
-            [xrCtrl0, xrCtrl1].forEach(ctrl => {
-                const mesh = new THREE.Mesh(ctrlGeo, ctrlMat);
-                mesh.rotation.x = Math.PI / 2;
-                mesh.position.z = -0.09;
-                ctrl.add(mesh);
-                const lineGeo = new THREE.BufferGeometry().setFromPoints([
-                    new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -2)
-                ]);
-                const line = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0xff8888, transparent: true, opacity: .4 }));
-                ctrl.add(line);
-            });
-
-            xrRaycaster = new THREE.Raycaster();
-
-            xrCtrl1.addEventListener('selectstart', () => {
-                if (!activeSpot) return;
-                document.getElementById('interact-prompt').style.display = 'none';
-                startGame(activeSpot.game, activeSpot.id, activeSpot.title);
-            });
-
-            /* ── VR Oturum Olayları ──────────────────────
-               sessionstart: Kamerayı scene'den çıkar → xrRig'e ekle
-               sessionend:   Kamerayı xrRig'den çıkar → scene'e geri ekle
-            ────────────────────────────────────────────── */
-            renderer.xr.addEventListener('sessionstart', () => {
-                xrActive = true;
-                stopNonVRLoop();
-
-                // Kamerayı xrRig'e bağla (VR headset kontrol edecek)
-                scene.remove(camera);
-                xrRig.add(camera);
-                camera.position.set(0, 1.6, 0);
-                camera.rotation.set(0, 0, 0);
-
-                // Rig'i oyuncunun bulunduğu yere taşı
-                if (player) {
-                    xrRig.position.set(player.position.x, 0, player.position.z);
-                    xrRig.rotation.y = playerYaw;
-                }
-
-                renderer.setAnimationLoop(loop);
-                console.log('VR oturumu başladı');
-            });
-
-            renderer.xr.addEventListener('sessionend', () => {
-                xrActive = false;
-                renderer.setAnimationLoop(null);
-
-                // Kamerayı xrRig'den çıkar, scene'e geri ekle
-                xrRig.remove(camera);
-                scene.add(camera);
-
-                // Oyuncu pozisyonunu VR rig'den senkronize et
-                if (player) {
-                    player.position.x = xrRig.position.x;
-                    player.position.z = xrRig.position.z;
-                    playerYaw = xrRig.rotation.y;
-                }
-
-                startNonVRLoop();
-                console.log('VR oturumu sona erdi');
-            });
-
-            /* ── VR: Sadece destekleniyorsa etkinleştir ── */
             renderer.xr.enabled = false;
-            if (navigator.xr && typeof navigator.xr.isSessionSupported === 'function') {
-                navigator.xr.isSessionSupported('immersive-vr')
-                    .then((ok) => {
-                        xrSupported = !!ok;
-                        if (!xrSupported) return;
-                        renderer.xr.enabled = true;
-                        if (typeof THREE.VRButton !== 'undefined') {
-                            const vrBtn = THREE.VRButton.createButton(renderer);
-                            vrBtn.style.cssText += ';z-index:50;bottom:80px;';
-                            document.body.appendChild(vrBtn);
-                        }
-                    })
-                    .catch(() => { xrSupported = false; });
-            }
+            detectAndSetupVR();
 
             // ── Sahne ve oyun objeleri ───────────────────
             buildScene();
@@ -1495,6 +1535,7 @@
 
         /* ════════════════ VR HAREKETİ ═════════════════ */
         function updateVRMovement(dt) {
+            if (!xrRig) return;
             const session = renderer.xr.getSession();
             if (!session) return;
 
