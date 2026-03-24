@@ -837,6 +837,15 @@
                 display: block !important
             }
         }
+
+        /* Quest tarayıcısında mobil joystick/butonlar gizlenir */
+        body.is-quest #joy-base,
+        body.is-quest #joy-label,
+        body.is-quest .m-btn,
+        body.is-quest #controls-hint,
+        body.is-quest #lock-overlay {
+            display: none !important
+        }
     </style>
 </head>
 <body>
@@ -856,6 +865,12 @@
                 <span class="k">🕹️</span><span>Sol joystick – yürü &amp; dön</span>
                 <span class="k">👆</span><span>Sağ alana sürükle – kamera</span>
                 <span class="k">🏆</span><span>Sol üst – liderlik tablosu</span>
+            </div>
+            <div class="controls-grid" id="vr-controls" style="display:none">
+                <span class="k">🎮 Sol</span><span>Joystick – yürü (baş yönünde)</span>
+                <span class="k">🎮 Sağ</span><span>Joystick – sağa/sola dön</span>
+                <span class="k">🖐️</span><span>Başını çevir – etrafına bak</span>
+                <span class="k">🔫</span><span>Sağ tetik – etkileşim</span>
             </div>
             <button id="start-btn">Kampüse Gir 🎓</button>
         </div>
@@ -960,13 +975,22 @@
         const SB_TABLE = 'campus_scores';
 
         /* ════════════════ PLATFORM ════════════════════ */
-        const IS_MOB = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+        const IS_QUEST = /OculusBrowser|Quest/i.test(navigator.userAgent);
+        const IS_MOB = !IS_QUEST && (
+            /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
             || ('ontouchstart' in window && navigator.maxTouchPoints > 1)
-            || window.matchMedia('(pointer:coarse)').matches;
+            || window.matchMedia('(pointer:coarse)').matches
+        );
 
         if (IS_MOB) {
             document.getElementById('pc-controls').style.display = 'none';
             document.getElementById('mob-controls').style.display = 'grid';
+        }
+        if (IS_QUEST) {
+            document.getElementById('pc-controls').style.display = 'none';
+            document.getElementById('mob-controls').style.display = 'none';
+            document.getElementById('vr-controls').style.display = 'grid';
+            document.body.classList.add('is-quest');
         }
 
         /* ════════════════ CONFIG ═══════════════════════ */
@@ -1075,6 +1099,7 @@
         function setupVR() {
             /* ── 1) Renderer XR'ı etkinleştir ────────── */
             renderer.xr.enabled = true;
+            renderer.xr.setReferenceSpaceType('local-floor');
 
             /* ── 2) Oyuncu kafesi (rig) oluştur ──────── */
             xrRig = new THREE.Group();
@@ -1084,17 +1109,14 @@
                 player ? player.position.z : 74
             );
             scene.add(xrRig);
-            // ❌ camera xrRig'e EKLENMİYOR
-            // Normal modda kamera scene'de serbest kalır.
-            // Sadece VR oturumu başlayınca bağlanır.
 
             /* ── 3) Kontrolcüleri (el) ekle ───────────── */
-            xrCtrl0 = renderer.xr.getController(0); // Sol el
-            xrCtrl1 = renderer.xr.getController(1); // Sağ el
+            xrCtrl0 = renderer.xr.getController(0);
+            xrCtrl1 = renderer.xr.getController(1);
             xrRig.add(xrCtrl0);
             xrRig.add(xrCtrl1);
 
-            // Kontrolcü görselleri: ince çubuk + ray çizgisi
+            // Kontrolcü görselleri: ince çubuk + ray
             const ctrlGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.18, 8);
             const ctrlMat = new THREE.MeshLambertMaterial({ color: 0xff4444 });
             [xrCtrl0, xrCtrl1].forEach(ctrl => {
@@ -1110,7 +1132,17 @@
                     new THREE.LineBasicMaterial({ color: 0xff8888, transparent: true, opacity: .4 })));
             });
 
-            /* ── 4) Raycast (trigger ile spot tespiti) ── */
+            /* ── 4) Controller grip modelleri (el) ────── */
+            const grip0 = renderer.xr.getControllerGrip(0);
+            const grip1 = renderer.xr.getControllerGrip(1);
+            const handGeo = new THREE.BoxGeometry(0.06, 0.08, 0.14);
+            const handMat = new THREE.MeshLambertMaterial({ color: 0x444466 });
+            grip0.add(new THREE.Mesh(handGeo, handMat));
+            grip1.add(new THREE.Mesh(handGeo, handMat));
+            xrRig.add(grip0);
+            xrRig.add(grip1);
+
+            /* ── 5) Raycast (trigger ile spot tespiti) ── */
             xrRaycaster = new THREE.Raycaster();
             xrCtrl1.addEventListener('selectstart', () => {
                 if (!activeSpot) return;
@@ -1118,7 +1150,7 @@
                 startGame(activeSpot.game, activeSpot.id, activeSpot.title);
             });
 
-            /* ── 5) VR oturum olayları ───────────────── */
+            /* ── 6) VR oturum olayları ───────────────── */
             renderer.xr.addEventListener('sessionstart', () => {
                 xrActive = true;
                 stopNonVRLoop();
@@ -1126,17 +1158,23 @@
                 // Kamerayı scene'den çıkar → xrRig'e bağla
                 scene.remove(camera);
                 xrRig.add(camera);
-                camera.position.set(0, 1.6, 0); // Göz yüksekliği
+                // local-floor ile y=0 zemin seviyesi, headset kendi yüksekliğini ekler
+                camera.position.set(0, 0, 0);
                 camera.rotation.set(0, 0, 0);
 
                 // Rig'i oyuncunun bulunduğu yere taşı
                 if (player) {
                     xrRig.position.set(player.position.x, 0, player.position.z);
                     xrRig.rotation.y = playerYaw;
+                    // 1. şahıs: oyuncu modelini gizle
+                    player.visible = false;
                 }
 
+                // HTML overlay'leri gizle (VR'da görünmezler ama temizlik)
+                hideHTMLForVR(true);
+
                 renderer.setAnimationLoop(loop);
-                console.log('VR oturumu başladı');
+                console.log('VR oturumu başladı – 1. şahıs modu');
             });
 
             renderer.xr.addEventListener('sessionend', () => {
@@ -1147,26 +1185,50 @@
                 xrRig.remove(camera);
                 scene.add(camera);
 
-                // Oyuncu pozisyonunu VR rig'den senkronize et
+                // Oyuncu modelini geri göster ve pozisyon senkronize et
                 if (player) {
+                    player.visible = true;
                     player.position.x = xrRig.position.x;
                     player.position.z = xrRig.position.z;
                     playerYaw = xrRig.rotation.y;
                 }
 
+                // HTML overlay'leri geri göster
+                hideHTMLForVR(false);
+
                 startNonVRLoop();
-                console.log('VR oturumu sona erdi');
+                console.log('VR oturumu sona erdi – 3. şahıs moduna dönüldü');
             });
 
-            /* ── 6) "Enter VR" butonunu göster ───────── */
+            /* ── 7) "Enter VR" butonunu göster ───────── */
             if (typeof THREE.VRButton !== 'undefined') {
                 const vrBtn = THREE.VRButton.createButton(renderer);
-                vrBtn.style.cssText += ';z-index:50;bottom:80px;';
+                // Quest 2'de belirgin olması için büyük ve parlak stil
+                vrBtn.style.cssText = `
+                    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+                    z-index: 200; padding: 16px 40px; border: 2px solid #e8c870;
+                    border-radius: 14px; background: linear-gradient(135deg,#e8c870,#c8922a);
+                    color: #0b0f1a; font-family: 'Cinzel',serif; font-size: 1.1rem;
+                    font-weight: 700; letter-spacing: .08em; cursor: pointer;
+                    box-shadow: 0 6px 30px rgba(232,200,112,.5);
+                    min-width: 200px; text-align: center;
+                `;
                 document.body.appendChild(vrBtn);
                 console.log('"Enter VR" butonu eklendi');
             } else {
                 console.warn('THREE.VRButton yüklenemedi');
             }
+        }
+
+        /* VR sırasında HTML UI'ı gizle/göster */
+        function hideHTMLForVR(hide) {
+            const ids = ['crosshair','controls-hint','mm-wrap','bldg-panel',
+                         'lb-panel','joy-base','joy-label','m-bldg-btn',
+                         'm-map-btn','m-lb-btn','lock-overlay'];
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = hide ? 'none' : '';
+            });
         }
 
         /* ════════════════ INIT ═════════════════════════ */
@@ -1533,7 +1595,13 @@
             });
         }
 
-        /* ════════════════ VR HAREKETİ ═════════════════ */
+        /* ════════════════ VR HAREKETİ ═════════════════
+           Sol joystick  → baş yönünde ileri/geri/sağ/sol
+           Sağ joystick  → 30° snap dönüş (konforlu VR)
+        ══════════════════════════════════════════════ */
+        let snapTurnReady = true; // Snap turn debounce
+        const SNAP_ANGLE = Math.PI / 6; // 30 derece
+
         function updateVRMovement(dt) {
             if (!xrRig) return;
             const session = renderer.xr.getSession();
@@ -1543,19 +1611,22 @@
                 const gp = src.gamepad;
                 if (!gp) continue;
 
-                // Sol el → yürüyüş
+                /* ── Sol el: Yürüyüş (baş yönünde) ────── */
                 if (src.handedness === 'left') {
                     const axX = gp.axes[2] || 0;
                     const axZ = gp.axes[3] || 0;
 
                     if (Math.abs(axX) > VR_DEADZONE || Math.abs(axZ) > VR_DEADZONE) {
+                        // Headset'in baktığı yönü al
                         const xrCamera = renderer.xr.getCamera(camera);
                         const forward = new THREE.Vector3();
                         const right = new THREE.Vector3();
                         xrCamera.getWorldDirection(forward);
-                        forward.y = 0; forward.normalize();
+                        forward.y = 0;
+                        forward.normalize();
                         right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
 
+                        // Joystick girdisini baş yönüne göre harekete çevir
                         const move = new THREE.Vector3();
                         move.addScaledVector(forward, -axZ * VR_WALK_SPEED * dt);
                         move.addScaledVector(right, axX * VR_WALK_SPEED * dt);
@@ -1567,7 +1638,7 @@
                         if (!inBldg(nx, xrRig.position.z, .75)) xrRig.position.x = nx;
                         if (!inBldg(xrRig.position.x, nz, .75)) xrRig.position.z = nz;
 
-                        // Player'ı VR rig ile senkronize et (minimap/NPC etkileşimi için)
+                        // Player pozisyonunu senkronize et (minimap, NPC)
                         if (player) {
                             player.position.x = xrRig.position.x;
                             player.position.z = xrRig.position.z;
@@ -1575,12 +1646,20 @@
                     }
                 }
 
-                // Sağ el → snap dönüş
+                /* ── Sağ el: Snap dönüş (30° adımlarla) ── */
                 if (src.handedness === 'right') {
                     const axX = gp.axes[2] || 0;
-                    if (Math.abs(axX) > VR_DEADZONE) {
-                        playerYaw -= axX * VR_TURN_SPEED * dt;
-                        xrRig.rotation.y = playerYaw;
+
+                    if (Math.abs(axX) > 0.6 && snapTurnReady) {
+                        // Sağa veya sola 30° snap
+                        const dir = axX > 0 ? -1 : 1;
+                        xrRig.rotation.y += SNAP_ANGLE * dir;
+                        playerYaw = xrRig.rotation.y;
+                        snapTurnReady = false;
+                    }
+                    // Joystick merkeze dönünce tekrar snap'e izin ver
+                    if (Math.abs(axX) < 0.3) {
+                        snapTurnReady = true;
                     }
                 }
             }
@@ -1727,7 +1806,32 @@
             window.addEventListener('keyup', e => { keys[e.code] = false; });
             setupInteractPrompt();
 
-            if (!IS_MOB) {
+            if (IS_QUEST) {
+                // Quest tarayıcısında: VR'a girmeden önce dokunmatik kamera kontrolü
+                document.getElementById('lock-overlay').classList.add('hidden');
+                document.addEventListener('touchstart', e => {
+                    if (gameRunning || xrActive) return;
+                    Array.from(e.changedTouches).forEach(t => {
+                        if (!LOOK.active) { LOOK.active = true; LOOK.id = t.identifier; LOOK.lx = t.clientX; LOOK.ly = t.clientY; }
+                    });
+                }, { passive: true });
+                document.addEventListener('touchmove', e => {
+                    if (gameRunning || xrActive) return;
+                    Array.from(e.changedTouches).forEach(t => {
+                        if (t.identifier === LOOK.id) {
+                            playerYaw -= (t.clientX - LOOK.lx) * CFG.touchSens;
+                            playerPitch += (t.clientY - LOOK.ly) * CFG.touchSens;
+                            playerPitch = Math.max(-.45, Math.min(.95, playerPitch));
+                            LOOK.lx = t.clientX; LOOK.ly = t.clientY;
+                        }
+                    });
+                }, { passive: true });
+                document.addEventListener('touchend', e => {
+                    Array.from(e.changedTouches).forEach(t => {
+                        if (t.identifier === LOOK.id) { LOOK.active = false; LOOK.id = -1; }
+                    });
+                }, { passive: true });
+            } else if (!IS_MOB) {
                 const ov = document.getElementById('lock-overlay');
                 renderer.domElement.addEventListener('click', () => { if (!isLocked && !gameRunning) renderer.domElement.requestPointerLock(); });
                 ov.addEventListener('click', () => { if (!isLocked) renderer.domElement.requestPointerLock(); });
@@ -2832,13 +2936,17 @@
             try {
                 initGame();
                 initAudio();
-                if (!IS_MOB) {
+                if (!IS_MOB && !IS_QUEST) {
                     const lockPromise = renderer.domElement.requestPointerLock();
                     if (lockPromise instanceof Promise) {
                         lockPromise.catch(() => {
                             document.getElementById('lock-overlay').classList.remove('hidden');
                         });
                     }
+                }
+                if (IS_QUEST) {
+                    // Quest'te pointer lock overlay'ini gizle
+                    document.getElementById('lock-overlay').classList.add('hidden');
                 }
             } catch (err) {
                 console.error('Oyun başlatma hatası:', err);
