@@ -846,6 +846,41 @@
         body.is-quest #lock-overlay {
             display: none !important
         }
+
+        /* ═══ VR GİRİŞ BUTONU ═══════════════════════════════════════ */
+        #vr-enter-btn {
+            position: fixed;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 210;
+            padding: 18px 48px;
+            border: 2.5px solid #e8c870;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #e8c870, #c8922a);
+            color: #0b0f1a;
+            font-family: 'Cinzel', serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: .1em;
+            cursor: pointer;
+            box-shadow: 0 8px 36px rgba(232,200,112,.6), 0 0 0 4px rgba(232,200,112,.15);
+            min-width: 240px;
+            text-align: center;
+            animation: vrPulse 2s ease-in-out infinite;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+            #vr-enter-btn:active {
+                transform: translateX(-50%) scale(.95);
+                box-shadow: 0 4px 18px rgba(232,200,112,.4);
+            }
+
+        @keyframes vrPulse {
+            0%, 100% { box-shadow: 0 8px 36px rgba(232,200,112,.6), 0 0 0 4px rgba(232,200,112,.15); }
+            50% { box-shadow: 0 8px 48px rgba(232,200,112,.8), 0 0 0 8px rgba(232,200,112,.2); }
+        }
     </style>
 </head>
 <body>
@@ -954,6 +989,9 @@
             <button id="sm-close-btn">Kapat</button>
         </div>
     </div>
+
+    <!-- VR GİRİŞ BUTONU (VR cihaz algılanırsa gösterilir) -->
+    <button id="vr-enter-btn" style="display:none">🥽 VR'a Gir</button>
 
     <!-- MOBİL BUTONLAR -->
     <div id="joy-base"><div id="joy-thumb"></div></div>
@@ -1200,31 +1238,43 @@
                 console.log('VR oturumu sona erdi – 3. şahıs moduna dönüldü');
             });
 
-            /* ── 7) "Enter VR" butonunu göster ───────── */
-            if (typeof THREE.VRButton !== 'undefined') {
-                const vrBtn = THREE.VRButton.createButton(renderer);
-                // Quest 2'de belirgin olması için büyük ve parlak stil
-                vrBtn.style.cssText = `
-                    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-                    z-index: 200; padding: 16px 40px; border: 2px solid #e8c870;
-                    border-radius: 14px; background: linear-gradient(135deg,#e8c870,#c8922a);
-                    color: #0b0f1a; font-family: 'Cinzel',serif; font-size: 1.1rem;
-                    font-weight: 700; letter-spacing: .08em; cursor: pointer;
-                    box-shadow: 0 6px 30px rgba(232,200,112,.5);
-                    min-width: 200px; text-align: center;
-                `;
-                document.body.appendChild(vrBtn);
-                console.log('"Enter VR" butonu eklendi');
-            } else {
-                console.warn('THREE.VRButton yüklenemedi');
-            }
+            /* ── 7) Manuel VR butonunu göster ve bağla ── */
+            const vrBtn = document.getElementById('vr-enter-btn');
+            vrBtn.style.display = 'block';
+            vrBtn.textContent = '🥽 VR\'a Gir';
+
+            vrBtn.addEventListener('click', async () => {
+                try {
+                    vrBtn.textContent = 'Bağlanıyor…';
+                    vrBtn.disabled = true;
+                    const sessionInit = {
+                        optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+                    };
+                    const session = await navigator.xr.requestSession('immersive-vr', sessionInit);
+                    renderer.xr.setSession(session);
+                    vrBtn.style.display = 'none';
+
+                    session.addEventListener('end', () => {
+                        vrBtn.style.display = 'block';
+                        vrBtn.textContent = '🥽 VR\'a Gir';
+                        vrBtn.disabled = false;
+                    });
+                } catch (err) {
+                    console.error('VR oturumu başlatılamadı:', err);
+                    vrBtn.textContent = '🥽 VR\'a Gir';
+                    vrBtn.disabled = false;
+                    alert('VR başlatılamadı: ' + err.message);
+                }
+            });
+
+            console.log('VR hazır – "VR\'a Gir" butonu gösterildi');
         }
 
         /* VR sırasında HTML UI'ı gizle/göster */
         function hideHTMLForVR(hide) {
             const ids = ['crosshair','controls-hint','mm-wrap','bldg-panel',
                          'lb-panel','joy-base','joy-label','m-bldg-btn',
-                         'm-map-btn','m-lb-btn','lock-overlay'];
+                         'm-map-btn','m-lb-btn','lock-overlay','vr-enter-btn'];
             ids.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = hide ? 'none' : '';
